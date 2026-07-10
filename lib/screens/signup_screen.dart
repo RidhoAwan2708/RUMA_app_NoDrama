@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../config/theme.dart';
+import '../models/user_model.dart';
+import '../services/auth_provider.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -16,7 +19,6 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passCtrl = TextEditingController();
   final _confirmPassCtrl = TextEditingController();
   bool _obscure = true;
-  bool _loading = false;
 
   @override
   void dispose() {
@@ -28,21 +30,39 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  void _signup() {
+  Future<void> _signup() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (!mounted) return;
-      setState(() => _loading = false);
+    final auth = context.read<AuthProvider>();
+    auth.clearError();
+    final ok = await auth.signUp(
+      email: _emailCtrl.text.trim(),
+      password: _passCtrl.text,
+      name: _nameCtrl.text.trim(),
+      nimNip: _nimCtrl.text.trim(),
+      role: UserRole.civitas,
+    );
+    if (!mounted) return;
+    if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pendaftaran berhasil! Silakan masuk.')),
+        const SnackBar(
+          content: Text('Pendaftaran berhasil!'),
+          backgroundColor: RumaColors.secondaryGreen,
+        ),
       );
-      Navigator.of(context).pop();
-    });
+      Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (r) => false);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.error ?? 'Gagal daftar'),
+          backgroundColor: RumaColors.dangerRed,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final loading = context.watch<AuthProvider>().loading;
     return Scaffold(
       appBar: AppBar(title: const Text('Daftar Akun')),
       body: SafeArea(
@@ -116,8 +136,8 @@ class _SignupScreenState extends State<SignupScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _loading ? null : _signup,
-                    child: _loading
+                    onPressed: loading ? null : _signup,
+                    child: loading
                         ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: RumaColors.white))
                         : const Text('Daftar'),
                   ),

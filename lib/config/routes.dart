@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/mock_data_service.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_provider.dart';
 import '../screens/splash_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/signup_screen.dart';
@@ -24,9 +25,12 @@ class AppRouter {
       case '/signup':
         return MaterialPageRoute(builder: (_) => const SignupScreen());
       case '/dashboard':
-        final user = MockDataService.mockUsers[0];
-        return MaterialPageRoute(
-          builder: (_) => NavShell(
+        return MaterialPageRoute(builder: (ctx) {
+          final user = ctx.watch<AuthProvider>().user;
+          if (user == null) {
+            return const LoginScreen();
+          }
+          return NavShell(
             user: user,
             initialIndex: 0,
             destinations: [
@@ -55,8 +59,8 @@ class AppRouter {
                 label: 'Notifikasi',
               ),
             ],
-          ),
-        );
+          );
+        });
       case '/scan-qr':
         return MaterialPageRoute(builder: (_) => const ScanQRScreen());
       case '/room-detail':
@@ -66,16 +70,19 @@ class AppRouter {
       case '/report-detail':
         return MaterialPageRoute(builder: (_) => const ReportDetailScreen());
       case '/history':
-        return MaterialPageRoute(builder: (_) => const MaintenanceHistoryScreen());
+        return MaterialPageRoute(
+            builder: (_) => const MaintenanceHistoryScreen());
       case '/notifications':
-        return MaterialPageRoute(builder: (_) => const NotificationsScreen());
+        return MaterialPageRoute(
+            builder: (_) => const NotificationsScreen());
       case '/profile':
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
       case '/admin':
-        final adminUser = MockDataService.mockUsers[2];
-        return MaterialPageRoute(
-          builder: (_) => NavShell(
-            user: adminUser,
+        return MaterialPageRoute(builder: (ctx) {
+          final user = ctx.watch<AuthProvider>().user;
+          if (user == null) return const LoginScreen();
+          return NavShell(
+            user: user,
             initialIndex: 0,
             destinations: [
               NavDestination(
@@ -97,8 +104,8 @@ class AppRouter {
                 label: 'Notifikasi',
               ),
             ],
-          ),
-        );
+          );
+        });
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(

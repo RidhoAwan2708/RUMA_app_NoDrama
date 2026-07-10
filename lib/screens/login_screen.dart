@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../config/theme.dart';
+import '../services/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,7 +15,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController(text: 'mahasiswa@ruma.ac.id');
   final _passCtrl = TextEditingController(text: 'password123');
   bool _obscure = true;
-  bool _loading = false;
 
   @override
   void dispose() {
@@ -22,18 +23,27 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
+  Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (!mounted) return;
-      setState(() => _loading = false);
+    final auth = context.read<AuthProvider>();
+    auth.clearError();
+    final ok = await auth.signIn(_emailCtrl.text.trim(), _passCtrl.text);
+    if (!mounted) return;
+    if (ok) {
       Navigator.of(context).pushReplacementNamed('/dashboard');
-    });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.error ?? 'Gagal masuk'),
+          backgroundColor: RumaColors.dangerRed,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final loading = context.watch<AuthProvider>().loading;
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -91,8 +101,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _loading ? null : _login,
-                    child: _loading
+                    onPressed: loading ? null : _login,
+                    child: loading
                         ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: RumaColors.white))
                         : const Text('Masuk'),
                   ),

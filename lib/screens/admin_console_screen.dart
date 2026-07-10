@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../models/report_model.dart';
-import '../services/mock_data_service.dart';
+import '../services/firestore_provider.dart';
 import '../widgets/report_card.dart';
 
 class AdminConsoleScreen extends StatefulWidget {
@@ -11,13 +12,17 @@ class AdminConsoleScreen extends StatefulWidget {
   State<AdminConsoleScreen> createState() => _AdminConsoleScreenState();
 }
 
-class _AdminConsoleScreenState extends State<AdminConsoleScreen> with SingleTickerProviderStateMixin {
+class _AdminConsoleScreenState extends State<AdminConsoleScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<FirestoreProvider>().loadAllReports();
+    });
   }
 
   @override
@@ -28,13 +33,22 @@ class _AdminConsoleScreenState extends State<AdminConsoleScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    final allReports = MockDataService.mockReports;
-    final rooms = MockDataService.mockRooms;
+    final provider = context.watch<FirestoreProvider>();
+    final allReports = provider.allReports;
+    final rooms = provider.rooms;
 
     final totalReports = allReports.length;
-    final resolvedCount = allReports.where((r) => r.status == ReportStatus.resolved).length;
-    final activeCount = allReports.where((r) => r.status == ReportStatus.reported || r.status == ReportStatus.inProgress).length;
-    final avgHealth = rooms.fold(0.0, (s, r) => s + r.healthScore) / rooms.length;
+    final resolvedCount = allReports
+        .where((r) => r.status == ReportStatus.resolved)
+        .length;
+    final activeCount = allReports
+        .where((r) =>
+            r.status == ReportStatus.reported ||
+            r.status == ReportStatus.inProgress)
+        .length;
+    final avgHealth = rooms.isEmpty
+        ? 0.0
+        : rooms.fold(0.0, (s, r) => s + r.healthScore) / rooms.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -59,7 +73,7 @@ class _AdminConsoleScreenState extends State<AdminConsoleScreen> with SingleTick
             resolvedCount: resolvedCount,
             activeCount: activeCount,
             avgHealth: avgHealth,
-            rooms: rooms,
+            reports: allReports,
           ),
           _ReportsTab(reports: allReports),
           _RoomsTab(rooms: rooms),
@@ -74,92 +88,114 @@ class _OverviewTab extends StatelessWidget {
   final int resolvedCount;
   final int activeCount;
   final double avgHealth;
-  final List<dynamic> rooms;
+  final List<Report> reports;
 
   const _OverviewTab({
     required this.totalReports,
     required this.resolvedCount,
     required this.activeCount,
     required this.avgHealth,
-    required this.rooms,
+    required this.reports,
   });
 
   @override
   Widget build(BuildContext context) {
+    final categories = _categoryDistribution();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Row(
           children: [
-            Expanded(child: _StatCard(
-              icon: Icons.assignment,
-              label: 'Total Laporan',
-              value: '$totalReports',
-              color: RumaColors.primaryBlue,
-            )),
+            Expanded(
+                child: _StatCard(
+                    icon: Icons.assignment,
+                    label: 'Total Laporan',
+                    value: '$totalReports',
+                    color: RumaColors.primaryBlue)),
             const SizedBox(width: 12),
-            Expanded(child: _StatCard(
-              icon: Icons.check_circle,
-              label: 'Selesai',
-              value: '$resolvedCount',
-              color: RumaColors.secondaryGreen,
-            )),
+            Expanded(
+                child: _StatCard(
+                    icon: Icons.check_circle,
+                    label: 'Selesai',
+                    value: '$resolvedCount',
+                    color: RumaColors.secondaryGreen)),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _StatCard(
-              icon: Icons.warning_amber,
-              label: 'Aktif',
-              value: '$activeCount',
-              color: RumaColors.warningYellow,
-            )),
+            Expanded(
+                child: _StatCard(
+                    icon: Icons.warning_amber,
+                    label: 'Aktif',
+                    value: '$activeCount',
+                    color: RumaColors.warningYellow)),
             const SizedBox(width: 12),
-            Expanded(child: _StatCard(
-              icon: Icons.favorite,
-              label: 'Health Score',
-              value: '${avgHealth.toInt()}',
-              color: avgHealth >= 80 ? RumaColors.secondaryGreen : RumaColors.warningYellow,
-            )),
+            Expanded(
+                child: _StatCard(
+                    icon: Icons.favorite,
+                    label: 'Health Score',
+                    value: '${avgHealth.toInt()}',
+                    color: avgHealth >= 80
+                        ? RumaColors.secondaryGreen
+                        : RumaColors.warningYellow)),
           ],
         ),
         const SizedBox(height: 20),
-        Text('Distribusi Kategori', style: Theme.of(context).textTheme.titleMedium),
+        Text('Distribusi Kategori',
+            style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
-        ..._categoryDistribution().entries.map((e) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            children: [
-              SizedBox(width: 100, child: Text(e.key, style: const TextStyle(color: RumaColors.slate600))),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: e.value / totalReports,
-                    backgroundColor: RumaColors.slate200,
-                    valueColor: AlwaysStoppedAnimation(_catColor(e.key)),
-                    minHeight: 8,
+        ...categories.entries.map((e) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  SizedBox(
+                      width: 100,
+                      child: Text(e.key,
+                          style:
+                              const TextStyle(color: RumaColors.slate600))),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: totalReports > 0
+                            ? e.value / totalReports
+                            : 0,
+                        backgroundColor: RumaColors.slate200,
+                        valueColor: AlwaysStoppedAnimation(
+                            _catColor(e.key)),
+                        minHeight: 8,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                      width: 30,
+                      child: Text('${e.value}',
+                          textAlign: TextAlign.right)),
+                ],
               ),
-              const SizedBox(width: 12),
-              SizedBox(width: 30, child: Text('${e.value}', textAlign: TextAlign.right)),
-            ],
-          ),
-        )),
+            )),
       ],
     );
   }
 
   Color _catColor(String cat) {
-    final colors = [RumaColors.primaryBlue, RumaColors.secondaryGreen, RumaColors.warningYellow, RumaColors.dangerRed, RumaColors.primaryLight, Colors.purple, Colors.teal];
+    const colors = [
+      RumaColors.primaryBlue,
+      RumaColors.secondaryGreen,
+      RumaColors.warningYellow,
+      RumaColors.dangerRed,
+      RumaColors.primaryLight,
+      Colors.purple,
+      Colors.teal,
+    ];
     return colors[cat.hashCode % colors.length];
   }
 
   Map<String, int> _categoryDistribution() {
     final map = <String, int>{};
-    for (final r in MockDataService.mockReports) {
+    for (final r in reports) {
       map[r.category] = (map[r.category] ?? 0) + 1;
     }
     return map;
@@ -172,7 +208,11 @@ class _StatCard extends StatelessWidget {
   final String value;
   final Color color;
 
-  const _StatCard({required this.icon, required this.label, required this.value, required this.color});
+  const _StatCard(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -184,8 +224,14 @@ class _StatCard extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 28),
             const SizedBox(height: 12),
-            Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: color)),
-            Text(label, style: const TextStyle(color: RumaColors.slate500, fontSize: 13)),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: color)),
+            Text(label,
+                style:
+                    const TextStyle(color: RumaColors.slate500, fontSize: 13)),
           ],
         ),
       ),
@@ -204,7 +250,8 @@ class _ReportsTab extends StatelessWidget {
       itemCount: reports.length,
       itemBuilder: (_, i) => ReportCard(
         report: reports[i],
-        onTap: () => Navigator.of(context).pushNamed('/report-detail', arguments: reports[i]),
+        onTap: () => Navigator.of(context)
+            .pushNamed('/report-detail', arguments: reports[i]),
       ),
     );
   }
@@ -224,7 +271,8 @@ class _RoomsTab extends StatelessWidget {
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 6),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: Container(
               width: 48,
               height: 48,
@@ -235,14 +283,21 @@ class _RoomsTab extends StatelessWidget {
               child: Center(
                 child: Text(
                   '${room.healthScore.toInt()}',
-                  style: TextStyle(fontWeight: FontWeight.w700, color: room.healthColor),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: room.healthColor),
                 ),
               ),
             ),
-            title: Text(room.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+            title: Text(room.name,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text('${room.building} • Lt ${room.floor}'),
-            trailing: Text('Aktif: ${room.activeIssues}', style: const TextStyle(color: RumaColors.warningYellow, fontWeight: FontWeight.w500)),
-            onTap: () => Navigator.of(context).pushNamed('/room-detail', arguments: room),
+            trailing: Text('Aktif: ${room.activeIssues}',
+                style: const TextStyle(
+                    color: RumaColors.warningYellow,
+                    fontWeight: FontWeight.w500)),
+            onTap: () => Navigator.of(context)
+                .pushNamed('/room-detail', arguments: room),
           ),
         );
       },

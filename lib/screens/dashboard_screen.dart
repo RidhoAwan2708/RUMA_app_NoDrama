@@ -1,16 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/room_model.dart';
-import '../services/mock_data_service.dart';
+import '../services/firestore_provider.dart';
 import '../widgets/health_score_card.dart';
 import '../widgets/report_card.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<FirestoreProvider>().loadAllReports();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final rooms = MockDataService.mockRooms;
-    final reports = MockDataService.mockReports;
+    final provider = context.watch<FirestoreProvider>();
+    final rooms = provider.rooms;
+    final reports = provider.allReports;
 
     final avgScore = rooms.isEmpty
         ? 0.0
@@ -29,13 +44,21 @@ class DashboardScreen extends StatelessWidget {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async => await Future.delayed(const Duration(seconds: 1)),
+        onRefresh: () async {
+          final p = context.read<FirestoreProvider>();
+          await p.loadRooms();
+          await p.loadAllReports();
+        },
         child: ListView(
           padding: const EdgeInsets.only(bottom: 24),
           children: [
             HealthScoreCard(
               score: avgScore,
-              label: avgScore >= 80 ? 'Baik' : avgScore >= 60 ? 'Cukup' : 'Kritis',
+              label: avgScore >= 80
+                  ? 'Baik'
+                  : avgScore >= 60
+                      ? 'Cukup'
+                      : 'Kritis',
               roomName: 'Kampus',
               activeIssues: totalActive,
               resolvedIssues: totalResolved,
@@ -45,21 +68,26 @@ class DashboardScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Laporan Terbaru', style: Theme.of(context).textTheme.titleMedium),
+                  Text('Laporan Terbaru',
+                      style: Theme.of(context).textTheme.titleMedium),
                   TextButton(
-                    onPressed: () => Navigator.of(context).pushNamed('/history'),
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed('/history'),
                     child: const Text('Lihat Semua'),
                   ),
                 ],
               ),
             ),
             ...reports.take(3).map((r) => ReportCard(
-              report: r,
-              onTap: () => Navigator.of(context).pushNamed('/report-detail', arguments: r),
-            )),
+                  report: r,
+                  onTap: () => Navigator.of(context)
+                      .pushNamed('/report-detail', arguments: r),
+                )),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Text('Ruangan', style: Theme.of(context).textTheme.titleMedium),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Text('Ruangan',
+                  style: Theme.of(context).textTheme.titleMedium),
             ),
             ...rooms.map((room) => _RoomListTile(room: room)),
           ],
@@ -78,7 +106,8 @@ class _RoomListTile extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
           width: 48,
           height: 48,
@@ -90,16 +119,17 @@ class _RoomListTile extends StatelessWidget {
             child: Text(
               '${room.healthScore.toInt()}',
               style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: room.healthColor,
-              ),
+                  fontWeight: FontWeight.w700, color: room.healthColor),
             ),
           ),
         ),
-        title: Text(room.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text('${room.building} • Lt ${room.floor} • ${room.category}'),
+        title: Text(room.name,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle:
+            Text('${room.building} • Lt ${room.floor} • ${room.category}'),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(context).pushNamed('/room-detail', arguments: room),
+        onTap: () => Navigator.of(context)
+            .pushNamed('/room-detail', arguments: room),
       ),
     );
   }

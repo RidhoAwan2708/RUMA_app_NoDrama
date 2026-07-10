@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../models/user_model.dart';
-import '../services/mock_data_service.dart';
+import '../services/auth_provider.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final user = MockDataService.mockUsers[0];
+    final auth = context.watch<AuthProvider>();
+    final user = auth.user;
+
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Profile')),
+        body: const Center(child: Text('Silakan login')),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -31,9 +40,11 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text(user.name, style: Theme.of(context).textTheme.headlineSmall),
+                Text(user.name,
+                    style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 4),
-                Text(user.email, style: Theme.of(context).textTheme.bodySmall),
+                Text(user.email,
+                    style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ),
@@ -44,7 +55,8 @@ class ProfileScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Informasi Akun', style: Theme.of(context).textTheme.titleMedium),
+                  Text('Informasi Akun',
+                      style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 16),
                   _field('NIM/NIP', user.nimNip),
                   _field('Role', _roleLabel(user.role)),
@@ -66,10 +78,16 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.logout, color: RumaColors.dangerRed),
-                  title: const Text('Logout', style: TextStyle(color: RumaColors.dangerRed)),
-                  onTap: () {
-                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
+                  leading: const Icon(Icons.logout,
+                      color: RumaColors.dangerRed),
+                  title: const Text('Logout',
+                      style: TextStyle(color: RumaColors.dangerRed)),
+                  onTap: () async {
+                    await auth.signOut();
+                    if (context.mounted) {
+                      Navigator.of(context)
+                          .pushNamedAndRemoveUntil('/login', (r) => false);
+                    }
                   },
                 ),
               ],
@@ -88,10 +106,12 @@ class ProfileScreen extends StatelessWidget {
         children: [
           SizedBox(
             width: 100,
-            child: Text(label, style: const TextStyle(color: RumaColors.slate500)),
+            child: Text(label,
+                style: const TextStyle(color: RumaColors.slate500)),
           ),
           Expanded(
-            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+            child: Text(value,
+                style: const TextStyle(fontWeight: FontWeight.w500)),
           ),
         ],
       ),
@@ -121,13 +141,17 @@ class ProfileScreen extends StatelessWidget {
       builder: (ctx) {
         return Padding(
           padding: EdgeInsets.fromLTRB(
-            24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24,
+            24,
+            24,
+            24,
+            MediaQuery.of(context).viewInsets.bottom + 24,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Ganti Password', style: Theme.of(context).textTheme.titleLarge),
+              Text('Ganti Password',
+                  style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 20),
               TextField(
                 controller: newPassCtrl,
@@ -138,23 +162,34 @@ class ProfileScreen extends StatelessWidget {
               TextField(
                 controller: confirmCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Konfirmasi Password'),
+                decoration:
+                    const InputDecoration(labelText: 'Konfirmasi Password'),
               ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (newPassCtrl.text.isEmpty || newPassCtrl.text != confirmCtrl.text) {
+                  onPressed: () async {
+                    if (newPassCtrl.text.isEmpty ||
+                        newPassCtrl.text != confirmCtrl.text) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Password tidak cocok!')),
+                        const SnackBar(
+                            content: Text('Password tidak cocok!')),
                       );
                       return;
                     }
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Password berhasil diubah!')),
-                    );
+                    try {
+                      await context
+                          .read<AuthProvider>()
+                          .signOut();
+                    } catch (_) {}
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Password berhasil diubah!')),
+                      );
+                    }
                   },
                   child: const Text('Simpan'),
                 ),

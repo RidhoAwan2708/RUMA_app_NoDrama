@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../config/theme.dart';
+import '../services/auth_provider.dart';
+import '../services/firestore_provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,11 +15,19 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/login');
-      }
-    });
+    _init();
+  }
+
+  Future<void> _init() async {
+    context.read<FirestoreProvider>().loadRooms();
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    final auth = context.read<AuthProvider>();
+    if (auth.isLoggedIn) {
+      Navigator.of(context).pushReplacementNamed('/dashboard');
+    } else {
+      Navigator.of(context).pushReplacementNamed('/login');
+    }
   }
 
   @override
@@ -28,10 +39,7 @@ class _SplashScreenState extends State<SplashScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              RumaColors.primaryBlue,
-              Color(0xFF143FA0),
-            ],
+            colors: [RumaColors.primaryBlue, Color(0xFF143FA0)],
           ),
         ),
         child: Column(

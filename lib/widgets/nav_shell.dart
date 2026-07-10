@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../models/user_model.dart';
+import '../services/auth_provider.dart';
 
 class NavShell extends StatefulWidget {
   final RumaUser user;
@@ -96,7 +98,7 @@ class _NavShellState extends State<NavShell> {
             title: const Text('Profile'),
             onTap: () {
               Navigator.pop(context);
-              _navigateTo(context, '/profile');
+              Navigator.of(context).pushNamed('/profile');
             },
           ),
           ListTile(
@@ -104,7 +106,7 @@ class _NavShellState extends State<NavShell> {
             title: const Text('Notifikasi'),
             onTap: () {
               Navigator.pop(context);
-              _navigateTo(context, '/notifications');
+              Navigator.of(context).pushNamed('/notifications');
             },
           ),
           if (widget.user.isAdmin) ...[
@@ -114,7 +116,7 @@ class _NavShellState extends State<NavShell> {
               title: const Text('Admin Console', style: TextStyle(color: RumaColors.primaryBlue)),
               onTap: () {
                 Navigator.pop(context);
-                _navigateTo(context, '/admin');
+                Navigator.of(context).pushNamed('/admin');
               },
             ),
           ],
@@ -122,18 +124,17 @@ class _NavShellState extends State<NavShell> {
           ListTile(
             leading: const Icon(Icons.logout, color: RumaColors.dangerRed),
             title: const Text('Logout', style: TextStyle(color: RumaColors.dangerRed)),
-            onTap: () {
+            onTap: () async {
               Navigator.pop(context);
-              Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
+              await context.read<AuthProvider>().signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
+              }
             },
           ),
         ],
       ),
     );
-  }
-
-  void _navigateTo(BuildContext context, String route) {
-    Navigator.of(context).pushNamed(route);
   }
 }
 

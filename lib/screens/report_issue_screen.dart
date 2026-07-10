@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import '../config/theme.dart';
 import '../models/room_model.dart';
-
+import '../models/report_model.dart';
+import '../services/auth_provider.dart';
+import '../services/firestore_provider.dart';
 
 class ReportIssueScreen extends StatefulWidget {
   const ReportIssueScreen({super.key});
@@ -18,7 +22,10 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   String _priority = 'medium';
   bool _loading = false;
 
-  final _categories = ['AC', 'Lampu', 'Listrik', 'Kebersihan', 'Meubelair', 'Proyektor', 'Lainnya'];
+  final _categories = [
+    'AC', 'Lampu', 'Listrik', 'Kebersihan', 'Meubelair',
+    'Proyektor', 'Lainnya'
+  ];
   final _priorities = [
     ('low', 'Rendah', Colors.grey),
     ('medium', 'Sedang', RumaColors.warningYellow),
@@ -37,22 +44,47 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
-      setState(() => _loading = false);
+    final auth = context.read<AuthProvider>();
+    final firestore = context.read<FirestoreProvider>();
+    final room = _room;
+    final user = auth.user;
 
+    final report = Report(
+      id: const Uuid().v4(),
+      userId: user?.uid ?? 'unknown',
+      userName: user?.name ?? 'Unknown',
+      roomId: room?.id ?? 'unknown',
+      roomName: room?.name ?? 'Unknown',
+      category: _category,
+      description: _descCtrl.text.trim(),
+      priority: _priority,
+      status: ReportStatus.reported,
+    );
+
+    final ok = await firestore.addReport(report);
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Laporan berhasil dikirim!'),
+        const SnackBar(
+          content: Text('Laporan berhasil dikirim!'),
           backgroundColor: RumaColors.secondaryGreen,
         ),
       );
       Navigator.of(context).pop();
-    });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal mengirim laporan. Coba lagi.'),
+          backgroundColor: RumaColors.dangerRed,
+        ),
+      );
+    }
   }
 
   @override
@@ -77,24 +109,31 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                         color: RumaColors.primaryBlue.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.meeting_room, color: RumaColors.primaryBlue),
+                      child: const Icon(Icons.meeting_room,
+                          color: RumaColors.primaryBlue),
                     ),
-                    title: Text(room.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text(room.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text('${room.building} • Lt ${room.floor}'),
                   ),
                 ),
                 const SizedBox(height: 20),
               ],
-              Text('Kategori Masalah', style: Theme.of(context).textTheme.labelLarge),
+              Text('Kategori Masalah',
+                  style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _category,
                 decoration: const InputDecoration(),
-                items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                items: _categories
+                    .map((c) =>
+                        DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
                 onChanged: (v) => setState(() => _category = v!),
               ),
               const SizedBox(height: 20),
-              Text('Prioritas', style: Theme.of(context).textTheme.labelLarge),
+              Text('Prioritas',
+                  style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: 8),
               Row(
                 children: _priorities.map((p) {
@@ -107,7 +146,9 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
-                            color: selected ? p.$3.withValues(alpha: 0.1) : RumaColors.slate100,
+                            color: selected
+                                ? p.$3.withValues(alpha: 0.1)
+                                : RumaColors.slate100,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: selected ? p.$3 : RumaColors.slate200,
@@ -118,8 +159,12 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                             child: Text(
                               p.$2,
                               style: TextStyle(
-                                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                                color: selected ? p.$3 : RumaColors.slate500,
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                                color: selected
+                                    ? p.$3
+                                    : RumaColors.slate500,
                               ),
                             ),
                           ),
@@ -130,13 +175,15 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                 }).toList(),
               ),
               const SizedBox(height: 20),
-              Text('Deskripsi Masalah', style: Theme.of(context).textTheme.labelLarge),
+              Text('Deskripsi Masalah',
+                  style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _descCtrl,
                 maxLines: 5,
                 decoration: const InputDecoration(
-                  hintText: 'Jelaskan masalah yang Anda temui secara detail...',
+                  hintText:
+                      'Jelaskan masalah yang Anda temui secara detail...',
                   alignLabelWithHint: true,
                 ),
                 validator: (v) {
@@ -151,7 +198,11 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _submit,
                   child: _loading
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: RumaColors.white))
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: RumaColors.white))
                       : const Text('Kirim Laporan'),
                 ),
               ),
