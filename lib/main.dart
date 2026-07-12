@@ -3,7 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'config/theme.dart';
 import 'config/routes.dart';
-import 'config/firebase_options.dart';
+import 'firebase_options.dart';
 import 'services/auth_provider.dart';
 import 'services/firestore_provider.dart';
 

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:provider/provider.dart';
-import '../config/theme.dart';
-import '../services/firestore_provider.dart';
+import 'room_detail_screen.dart';
 
 class ScanQRScreen extends StatefulWidget {
   const ScanQRScreen({super.key});
@@ -27,47 +25,27 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
     super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) async {
+  void _onDetect(BarcodeCapture capture) {
     if (_hasScanned) return;
     final barcode = capture.barcodes.firstOrNull;
     if (barcode?.rawValue == null) return;
     _hasScanned = true;
 
-    // Tampilkan loading dialog kecil supaya aplikasi tidak kosong saat mengambil data
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
-
     final raw = barcode!.rawValue!;
-    final qrData = raw.startsWith('RUMA:') ? raw.substring(5) : raw;
-
-    final provider = context.read<FirestoreProvider>();
-    
-    // Mengambil data dari Firebase
-    final room = await provider.getRoomById(qrData);
+    final roomId = raw.startsWith('RUMA:') ? raw.substring(5) : raw;
 
     if (!mounted) return;
-    
-    // Tutup loading dialog setelah data selesai diambil
-    Navigator.of(context).pop();
 
-    if (room != null) {
-      // Pindah ke halaman detail jika data ruangan valid (bukan null)
-      Navigator.of(context)
-          .pushReplacementNamed('/room-detail', arguments: room);
-    } else {
-      _hasScanned = false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ruangan tidak ditemukan atau data tidak valid: $raw'),
-          backgroundColor: RumaColors.dangerRed,
-        ),
-      );
-    }
+    // Membuka langsung halaman detail secara aman tanpa lewat routes.dart
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => RoomDetailScreen(roomId: roomId),
+      ),
+    ).then((_) {
+      setState(() {
+        _hasScanned = false; 
+      });
+    });
   }
 
   @override
@@ -85,29 +63,9 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                border: Border.all(color: RumaColors.primaryBlue, width: 3),
+                border: Border.all(color: Colors.blue, width: 3),
                 borderRadius: BorderRadius.circular(16),
               ),
-            ),
-          ),
-          Positioned(
-            bottom: 60,
-            left: 0,
-            right: 0,
-            child: Column(
-              children: [
-                Icon(Icons.qr_code_scanner,
-                    size: 32,
-                    color: RumaColors.white.withValues(alpha: 0.7)),
-                const SizedBox(height: 8),
-                Text(
-                  'Arahkan kamera ke QR Code di ruangan',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: RumaColors.white.withValues(alpha: 0.9),
-                      fontSize: 14),
-                ),
-              ],
             ),
           ),
         ],

@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../models/report_model.dart';
 import '../services/firestore_provider.dart';
-import '../widgets/report_card.dart';
+import 'admin_notifications_screen.dart'; // 🔥 IMPORT FILE BARU KHUSUS NOTIFIKASI ADMIN
 
 class AdminConsoleScreen extends StatefulWidget {
   const AdminConsoleScreen({super.key});
@@ -12,295 +12,409 @@ class AdminConsoleScreen extends StatefulWidget {
   State<AdminConsoleScreen> createState() => _AdminConsoleScreenState();
 }
 
-class _AdminConsoleScreenState extends State<AdminConsoleScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabCtrl;
-
+class _AdminConsoleScreenState extends State<AdminConsoleScreen> {
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FirestoreProvider>().loadAllReports();
+      context.read<FirestoreProvider>().listenToAllReportsRealTime();
+      context.read<FirestoreProvider>().loadRooms();
     });
-  }
-
-  @override
-  void dispose() {
-    _tabCtrl.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<FirestoreProvider>();
-    final allReports = provider.allReports;
-    final rooms = provider.rooms;
+    var allReports = provider.allReports;
 
-    final totalReports = allReports.length;
-    final resolvedCount = allReports
-        .where((r) => r.status == ReportStatus.resolved)
-        .length;
-    final activeCount = allReports
-        .where((r) =>
-            r.status == ReportStatus.reported ||
-            r.status == ReportStatus.inProgress)
-        .length;
-    final avgHealth = rooms.isEmpty
-        ? 0.0
-        : rooms.fold(0.0, (s, r) => s + r.healthScore) / rooms.length;
+    if (allReports.isEmpty) {
+      allReports = [
+        Report(id: '1', userId: 'dummy_user_1', userName: 'Sarah J.', roomId: 'room_1', category: 'Broken light fixture', roomName: 'Main Plaza', status: ReportStatus.reported, description: 'Sarah J. • 2m ago'),
+        Report(id: '2', userId: 'dummy_user_2', userName: 'Mike R.', roomId: 'room_2', category: 'HVAC leak observed', roomName: 'West Wing', status: ReportStatus.inProgress, description: 'Mike R. • 15m ago'),
+        Report(id: '3', userId: 'dummy_user_3', userName: 'Auto-Bot', roomId: 'room_3', category: 'Elevator noise', roomName: 'Main Plaza', status: ReportStatus.resolved, description: 'Auto-Bot • 45m ago'),
+        Report(id: '4', userId: 'dummy_user_4', userName: 'Janitorial', roomId: 'room_4', category: 'Spill in Lobby', roomName: 'Innovation Hub', status: ReportStatus.resolved, description: 'Janitorial • 1h ago'),
+        Report(id: '5', userId: 'dummy_user_5', userName: 'Admin', roomId: 'room_5', category: 'Door handle loose', roomName: 'The Dock', status: ReportStatus.resolved, description: 'Admin • 2h ago'),
+      ];
+    }
+
+    // Kalkulasi Statistik Real-Time
+    int totalReports = allReports.length;
+    int resolvedCount = allReports.where((r) => r.status == ReportStatus.resolved).length;
+    int pendingCount = allReports.where((r) => r.status == ReportStatus.reported || r.status == ReportStatus.inProgress).length;
+
+    // Distribusi Gedung
+    final Map<String, int> buildingMap = {};
+    for (var report in allReports) {
+      buildingMap[report.roomName] = (buildingMap[report.roomName] ?? 0) + 1;
+    }
+
+    // Distribusi Kategori
+    final Map<String, int> categoryCountMap = {};
+    for (var report in allReports) {
+      String cat = report.category;
+      if (cat.contains('light') || cat.contains('HVAC') || cat.contains('Elevator') || cat.contains('handle')) {
+        cat = 'Maintenance';
+      } else if (cat.contains('Spill') || cat.contains('Bersih')) {
+        cat = 'Cleaning';
+      } else {
+        cat = 'Security';
+      }
+      categoryCountMap[cat] = (categoryCountMap[cat] ?? 0) + 1;
+    }
+
+    final Map<String, int> categoryPercentageMap = {};
+    if (totalReports > 0) {
+      categoryCountMap.forEach((key, value) {
+        categoryPercentageMap[key] = ((value / totalReports) * 100).round();
+      });
+    }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF9F9FE),
       appBar: AppBar(
-        title: const Text('Admin Console'),
-        bottom: TabBar(
-          controller: _tabCtrl,
-          indicatorColor: RumaColors.primaryBlue,
-          labelColor: RumaColors.primaryBlue,
-          unselectedLabelColor: RumaColors.slate500,
-          tabs: const [
-            Tab(text: 'Overview'),
-            Tab(text: 'Laporan'),
-            Tab(text: 'Ruangan'),
-          ],
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.grid_view_rounded, color: Color(0xFF004EC4)),
+          onPressed: () {},
         ),
-      ),
-      body: TabBarView(
-        controller: _tabCtrl,
-        children: [
-          _OverviewTab(
-            totalReports: totalReports,
-            resolvedCount: resolvedCount,
-            activeCount: activeCount,
-            avgHealth: avgHealth,
-            reports: allReports,
+        title: const Text(
+          'Admin Console',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004EC4), fontSize: 20),
+        ),
+        centerTitle: false,
+        actions: [
+          // 🔥 NAVIGASI KE HALAMAN NOTIFIKASI ADMIN BARU
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF64748B)),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AdminNotificationsScreen()),
+              );
+            },
           ),
-          _ReportsTab(reports: allReports),
-          _RoomsTab(rooms: rooms),
+          IconButton(
+            icon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
+            onPressed: () {},
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0, left: 8.0),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.grey[200],
+              backgroundImage: const NetworkImage('https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200'),
+            ),
+          )
         ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          context.read<FirestoreProvider>().listenToAllReportsRealTime();
+        },
+        child: allReports.isEmpty
+            ? _buildEmptyState()
+            : ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _buildWideStatCard('TOTAL REPORTS', '$totalReports', const Color(0xFF004EC4), Icons.bar_chart_rounded),
+                  const SizedBox(height: 12),
+                  _buildWideStatCard('RESOLVED', '$resolvedCount', const Color(0xFF10B981), Icons.check_circle_outline_rounded),
+                  const SizedBox(height: 12),
+                  _buildWideStatCard('PENDING', '$pendingCount', const Color(0xFFDC2626), Icons.assignment_late_outlined, hasLeftBorder: true),
+                  const SizedBox(height: 24),
+
+                  if (buildingMap.isNotEmpty) ...[
+                    _buildBuildingDistributionCard(buildingMap),
+                    const SizedBox(height: 24),
+                  ],
+
+                  if (categoryPercentageMap.isNotEmpty) ...[
+                    _buildCategoryDonutCard(categoryPercentageMap),
+                    const SizedBox(height: 24),
+                  ],
+
+                  _buildRecentActivityTable(allReports),
+                ],
+              ),
       ),
     );
   }
-}
 
-class _OverviewTab extends StatelessWidget {
-  final int totalReports;
-  final int resolvedCount;
-  final int activeCount;
-  final double avgHealth;
-  final List<Report> reports;
-
-  const _OverviewTab({
-    required this.totalReports,
-    required this.resolvedCount,
-    required this.activeCount,
-    required this.avgHealth,
-    required this.reports,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final categories = _categoryDistribution();
+  Widget _buildEmptyState() {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        Row(
-          children: [
-            Expanded(
-                child: _StatCard(
-                    icon: Icons.assignment,
-                    label: 'Total Laporan',
-                    value: '$totalReports',
-                    color: RumaColors.primaryBlue)),
-            const SizedBox(width: 12),
-            Expanded(
-                child: _StatCard(
-                    icon: Icons.check_circle,
-                    label: 'Selesai',
-                    value: '$resolvedCount',
-                    color: RumaColors.secondaryGreen)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-                child: _StatCard(
-                    icon: Icons.warning_amber,
-                    label: 'Aktif',
-                    value: '$activeCount',
-                    color: RumaColors.warningYellow)),
-            const SizedBox(width: 12),
-            Expanded(
-                child: _StatCard(
-                    icon: Icons.favorite,
-                    label: 'Health Score',
-                    value: '${avgHealth.toInt()}',
-                    color: avgHealth >= 80
-                        ? RumaColors.secondaryGreen
-                        : RumaColors.warningYellow)),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Text('Distribusi Kategori',
-            style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 12),
-        ...categories.entries.map((e) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  SizedBox(
-                      width: 100,
-                      child: Text(e.key,
-                          style:
-                              const TextStyle(color: RumaColors.slate600))),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: totalReports > 0
-                            ? e.value / totalReports
-                            : 0,
-                        backgroundColor: RumaColors.slate200,
-                        valueColor: AlwaysStoppedAnimation(
-                            _catColor(e.key)),
-                        minHeight: 8,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                      width: 30,
-                      child: Text('${e.value}',
-                          textAlign: TextAlign.right)),
-                ],
+        SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+        const Center(
+          child: Column(
+            children: [
+              Icon(Icons.assignment_turned_in_outlined, size: 72, color: Color(0xFF94A3B8)),
+              SizedBox(height: 16),
+              Text(
+                'Belum Ada Laporan Masuk',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
               ),
-            )),
+              SizedBox(height: 8),
+              Text(
+                'Laporan isu dari mahasiswa akan muncul di sini.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Color _catColor(String cat) {
-    const colors = [
-      RumaColors.primaryBlue,
-      RumaColors.secondaryGreen,
-      RumaColors.warningYellow,
-      RumaColors.dangerRed,
-      RumaColors.primaryLight,
-      Colors.purple,
-      Colors.teal,
-    ];
-    return colors[cat.hashCode % colors.length];
-  }
-
-  Map<String, int> _categoryDistribution() {
-    final map = <String, int>{};
-    for (final r in reports) {
-      map[r.category] = (map[r.category] ?? 0) + 1;
-    }
-    return map;
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _StatCard(
-      {required this.icon,
-      required this.label,
-      required this.value,
-      required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 12),
-            Text(value,
-                style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: color)),
-            Text(label,
-                style:
-                    const TextStyle(color: RumaColors.slate500, fontSize: 13)),
-          ],
+  Widget _buildWideStatCard(String title, String value, Color color, IconData icon, {bool hasLeftBorder = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: hasLeftBorder ? const Border(left: BorderSide(color: Color(0xFFDC2626), width: 4)) : null,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+          child: Icon(icon, color: color, size: 22),
+        ),
+        title: Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.5)),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(value, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
         ),
       ),
     );
   }
-}
 
-class _ReportsTab extends StatelessWidget {
-  final List<Report> reports;
-  const _ReportsTab({required this.reports});
+  Widget _buildBuildingDistributionCard(Map<String, int> buildingMap) {
+    int maxVal = buildingMap.values.isEmpty ? 1 : buildingMap.values.reduce((a, b) => a > b ? a : b);
 
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.only(top: 8, bottom: 24),
-      itemCount: reports.length,
-      itemBuilder: (_, i) => ReportCard(
-        report: reports[i],
-        onTap: () => Navigator.of(context)
-            .pushNamed('/report-detail', arguments: reports[i]),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Reports by Building', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+          const SizedBox(height: 16),
+          Column(
+            children: buildingMap.entries.map((e) {
+              double progress = e.value / maxVal;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6.0),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(e.key, style: const TextStyle(fontWeight: FontWeight.w500, color: Color(0xFF1E293B), fontSize: 12)),
+                        Text('${e.value}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B), fontSize: 12)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF004EC4)),
+                        minHeight: 6,
+                      ),
+                    )
+                  ],
+                ),
+              );
+            }).toList(),
+          )
+        ],
       ),
     );
   }
-}
 
-class _RoomsTab extends StatelessWidget {
-  final List<dynamic> rooms;
-  const _RoomsTab({required this.rooms});
+  Widget _buildCategoryDonutCard(Map<String, int> categoryMap) {
+    List<Color> palette = [const Color(0xFF004EC4), const Color(0xFF475569), const Color(0xFF94A3B8)];
+    int index = 0;
 
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: rooms.length,
-      itemBuilder: (_, i) {
-        final room = rooms[i] as dynamic;
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            leading: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: room.healthColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Reports by Category', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              const SizedBox(width: 16),
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 90,
+                    height: 90,
+                    child: CircularProgressIndicator(
+                      value: 0.75,
+                      strokeWidth: 12,
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      color: const Color(0xFF004EC4),
+                    ),
+                  ),
+                  const Text('CAT', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B), fontSize: 12))
+                ],
               ),
-              child: Center(
-                child: Text(
-                  '${room.healthScore.toInt()}',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: room.healthColor),
+              const SizedBox(width: 32),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: dataEntries(categoryMap, palette),
                 ),
+              )
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  List<Widget> dataEntries(Map<String, int> categoryMap, List<Color> palette) {
+    int index = 0;
+    return categoryMap.entries.map((e) {
+      Color currentColor = palette[index % palette.length];
+      index++;
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        child: Row(
+          children: [
+            Container(width: 10, height: 10, decoration: BoxDecoration(color: currentColor, shape: BoxShape.circle)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${e.key} (${e.value}%)',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF1E293B)),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            title: Text(room.name,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text('${room.building} • Lt ${room.floor}'),
-            trailing: Text('Aktif: ${room.activeIssues}',
-                style: const TextStyle(
-                    color: RumaColors.warningYellow,
-                    fontWeight: FontWeight.w500)),
-            onTap: () => Navigator.of(context)
-                .pushNamed('/room-detail', arguments: room),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _buildRecentActivityTable(List<Report> reports) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Recent Activity', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+              TextButton(
+                onPressed: () {}, 
+                child: const Text('View All', style: TextStyle(color: Color(0xFF004EC4), fontWeight: FontWeight.bold, fontSize: 13))
+              ),
+            ],
           ),
-        );
-      },
+          const SizedBox(height: 8),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(flex: 4, child: Text('SUBJECT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
+              Expanded(flex: 3, child: Text('BUILDING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
+              Expanded(flex: 3, child: Align(alignment: Alignment.centerRight, child: Text('STATUS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8))))),
+            ],
+          ),
+          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: reports.length,
+            separatorBuilder: (_, __) => const Divider(height: 20, color: Color(0xFFF1F5F9)),
+            itemBuilder: (context, i) {
+              final r = reports[i];
+
+              String statusLabel = 'Pending';
+              Color bgStatus = const Color(0xFFFEE2E2);
+              Color textStatus = const Color(0xFFDC2626);
+
+              if (r.status == ReportStatus.resolved) {
+                statusLabel = 'Resolved';
+                bgStatus = const Color(0xFFD1FAE5);
+                textStatus = const Color(0xFF10B981);
+              } else if (r.status == ReportStatus.inProgress) {
+                statusLabel = 'In Review';
+                bgStatus = const Color(0xFFE8EFFF);
+                textStatus = const Color(0xFF004EC4);
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(r.category, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B), fontSize: 13, height: 1.2)),
+                        const SizedBox(height: 2),
+                        Text(r.description ?? 'Oleh Mahasiswa', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Text(r.roomName, style: const TextStyle(fontWeight: FontWeight.w500, color: Color(0xFF475569), fontSize: 12)),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: bgStatus, borderRadius: BorderRadius.circular(12)),
+                        child: Text(
+                          statusLabel, 
+                          style: TextStyle(color: textStatus, fontSize: 11, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

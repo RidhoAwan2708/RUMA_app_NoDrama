@@ -1,37 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/theme.dart';
-import '../services/auth_provider.dart';
 
-class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+class AdminNotificationsScreen extends StatefulWidget {
+  const AdminNotificationsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
+  State<AdminNotificationsScreen> createState() => _AdminNotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   String _filter = 'semua';
   final _filters = ['semua', 'Belum Dibaca'];
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final currentUid = auth.user?.uid ?? '';
-
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9FE),
       appBar: AppBar(
-        title: const Text('Notifikasi'),
+        title: const Text('Notifikasi Masuk (Admin)'),
         elevation: 0,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // Menggunakan query sederhana tanpa orderBy untuk menghindari error Precondition/Index
+        // 🔥 Tanpa filter userId, khusus admin agar bisa membaca semua notifikasi yang masuk
         stream: FirebaseFirestore.instance
             .collection('notifications')
-            .where('userId', isEqualTo: currentUid)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -109,7 +103,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             Icon(Icons.notifications_off_outlined,
                                 size: 64, color: RumaColors.slate300),
                             const SizedBox(height: 16),
-                            Text('Tidak ada notifikasi',
+                            Text('Tidak ada notifikasi masuk',
                                 style: TextStyle(color: RumaColors.slate500)),
                           ],
                         ),
@@ -138,7 +132,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             ),
                             child: ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              // 🔥 FIXING: Ikon & Warna mendukung tipe 'report' dan 'report_status'
                               leading: Container(
                                 width: 44,
                                 height: 44,
@@ -158,7 +151,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 ),
                               ),
                               title: Text(
-                                n['title'] ?? 'Pemberitahuan',
+                                n['title'] ?? 'Pemberitahuan Masuk',
                                 style: TextStyle(
                                   fontWeight: isRead ? FontWeight.normal : FontWeight.w600,
                                   color: RumaColors.slate800,
@@ -192,7 +185,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       ),
                                     ),
                               onTap: () {
-                                // Tandai notifikasi sudah dibaca saat diklik
                                 doc.reference.update({'isRead': true});
                               },
                             ),

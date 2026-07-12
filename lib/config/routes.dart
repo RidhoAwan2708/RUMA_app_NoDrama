@@ -77,7 +77,10 @@ class AppRouter {
             builder: (_) => const NotificationsScreen());
       case '/profile':
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
+      
+      // 🔥 FIX BUGS: Menambahkan case '/admin-console' agar mengarah ke struktur NavShell Admin yang sama dengan '/admin'
       case '/admin':
+      case '/admin-console':
         return MaterialPageRoute(builder: (ctx) {
           final user = ctx.watch<AuthProvider>().user;
           if (user == null) return const LoginScreen();

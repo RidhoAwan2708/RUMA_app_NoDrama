@@ -57,7 +57,6 @@ class DefaultFirebaseOptions {
     projectId: 'yogawahyu24',
     storageBucket: 'yogawahyu24.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCpm22lFEkI6DOzwWdFN7INKUUvnkWmoF4',
     appId: '1:256881306554:ios:31202e57326d74cd1ecb83',
@@ -66,7 +65,6 @@ class DefaultFirebaseOptions {
     storageBucket: 'yogawahyu24.firebasestorage.app',
     iosBundleId: 'com.ruma.rumaApp',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyCpm22lFEkI6DOzwWdFN7INKUUvnkWmoF4',
     appId: '1:256881306554:ios:31202e57326d74cd1ecb83',

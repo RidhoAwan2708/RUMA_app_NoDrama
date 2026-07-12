@@ -68,17 +68,59 @@ class FirestoreProvider extends ChangeNotifier {
     }
   }
 
+  // 🔥 UPDATE FINAL: Menyimpan Laporan sekaligus Membuat Dokumen Notifikasi Baru di Firebase
   Future<bool> addReport(Report report) async {
     try {
+      // 1. Simpan dokumen laporan ke Firestore
       await _firestore.collection('reports').doc(report.id).set(report.toMap());
+      
+      // 2. Otomatis buat data notifikasi untuk Mahasiswa yang melapor
+      final String notifId = _firestore.collection('notifications').doc().id;
+      final String namaRuangan = report.roomName ?? 'Ruangan';
+      final String kategoriMasalah = report.category ?? 'Masalah';
+
+      await _firestore.collection('notifications').doc(notifId).set({
+        'id': notifId,
+        'userId': report.userId, 
+        'title': 'Laporan Baru: $namaRuangan',
+        'message': '$kategoriMasalah berhasil dilaporkan dengan prioritas high.',
+        'timestamp': FieldValue.serverTimestamp(), // Menggunakan timestamp server agar dibaca StreamBuilder
+        'isRead': false,
+        'type': 'report',
+      });
+
       if (!_useMock) {
-        _allReports.insert(0, report);
+        if (!_allReports.any((r) => r.id == report.id)) {
+          _allReports.insert(0, report);
+        }
         notifyListeners();
       }
       return true;
-    } catch (_) {
+    } catch (e) {
+      debugPrint("Gagal menambah laporan & notifikasi: $e");
       return false;
     }
+  }
+
+  // 🔥 FIXED BUGS: Mengamankan error callback agar tidak mengubah status _useMock ke true saat ditekan kembali
+  void listenToAllReportsRealTime() {
+    if (_useMock) {
+      _allReports = MockDataService.mockReports;
+      notifyListeners();
+      return;
+    }
+    
+    _firestore
+        .collection('reports')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .listen((snap) {
+          _allReports = snap.docs.map((d) => Report.fromMap(d.data())).toList();
+          notifyListeners(); 
+        }, onError: (e) {
+          // Hanya print error ke konsol tanpa merusak state global aplikasi
+          debugPrint("Firestore Stream Error: $e");
+        });
   }
 
   Future<void> loadAllReports() async {
@@ -115,6 +157,23 @@ class FirestoreProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void listenToNotificationsRealTime(String userId) {
+    if (_useMock) {
+      _notifications = MockDataService.mockNotifications;
+      notifyListeners();
+      return;
+    }
+
+    _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .listen((snap) {
+          _notifications = snap.docs.map((d) => AppNotification.fromMap(d.data())).toList();
+          notifyListeners();
+        }, onError: (_) {});
+  }
+
   Future<void> loadNotifications(String userId) async {
     if (_useMock) {
       _notifications = MockDataService.mockNotifications;
@@ -125,7 +184,6 @@ class FirestoreProvider extends ChangeNotifier {
       final snap = await _firestore
           .collection('notifications')
           .where('userId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
           .get();
       _notifications =
           snap.docs.map((d) => AppNotification.fromMap(d.data())).toList();

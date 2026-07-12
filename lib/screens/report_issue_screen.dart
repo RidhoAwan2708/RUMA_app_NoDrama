@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // 🛠️ Ditambahkan untuk interaksi Firebase langsung
 import '../config/theme.dart';
 import '../models/room_model.dart';
 import '../models/report_model.dart';
@@ -53,8 +54,11 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     final room = _room;
     final user = auth.user;
 
+    final reportId = const Uuid().v4();
+
+    // 1. Membuat objek data model Report bawaan
     final report = Report(
-      id: const Uuid().v4(),
+      id: reportId,
       userId: user?.uid ?? 'unknown',
       userName: user?.name ?? 'Unknown',
       roomId: room?.id ?? 'unknown',
@@ -65,7 +69,48 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       status: ReportStatus.reported,
     );
 
+    // 2. Kirim via Firestore Provider bawaan project
     final ok = await firestore.addReport(report);
+    
+    // 3. 🛠️ PERBAIKAN UTAMA: Paksa data masuk ke Firebase lengkap dengan 'userId' dan 'notifications'
+    if (ok) {
+      try {
+        final currentUid = user?.uid ?? 'unknown';
+
+        // Update / Set ulang dokumen reports agar PASTI memiliki field userId untuk saringan Riwayat di Web
+        await FirebaseFirestore.instance.collection('reports').doc(reportId).set({
+          'id': reportId,
+          'userId': currentUid, // Saringan krusial halaman riwayat
+          'userName': user?.name ?? 'Unknown',
+          'roomId': room?.id ?? 'unknown',
+          'roomName': room?.name ?? 'Unknown',
+          'category': _category,
+          'description': _descCtrl.text.trim(),
+          'priority': _priority,
+          'status': 'reported',
+          'createdAt': DateTime.now().toIso8601String(),
+          'imageUrls': [],
+          'assignedTo': null,
+          'assignedName': null,
+          'resolution': null,
+          'resolvedAt': null,
+        }, SetOptions(merge: true));
+
+        // Buat dokumen baru di koleksi 'notifications' agar halaman Notifikasi terisi otomatis
+        await FirebaseFirestore.instance.collection('notifications').add({
+          'id': const Uuid().v4(),
+          'userId': currentUid, // Saringan halaman notifikasi
+          'title': 'Laporan Baru: ${room?.name ?? 'Ruangan'}',
+          'message': 'Masalah $_category berhasil dilaporkan dengan prioritas $_priority.',
+          'type': 'report_status',
+          'isRead': false,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint('Gagal sinkronisasi data ekstra Firebase: $e');
+      }
+    }
+
     if (!mounted) return;
     setState(() => _loading = false);
 

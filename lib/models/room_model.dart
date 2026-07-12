@@ -9,8 +9,8 @@ class Room {
   final double healthScore;
   final int activeIssues;
   final int resolvedIssues;
-  final String? qrCodeData; 
-  final String status;
+  final String status; // Tidak wajib (required) lagi di constructor
+  final String qrCodeData;
 
   Room({
     required this.id,
@@ -18,50 +18,39 @@ class Room {
     required this.building,
     required this.floor,
     required this.category,
-    this.healthScore = 100,
-    this.activeIssues = 0,
-    this.resolvedIssues = 0,
-    this.qrCodeData,
-    this.status = 'aktif',
+    required this.healthScore,
+    required this.activeIssues,
+    required this.resolvedIssues,
+    this.status = 'aktif', // <--- JIKA KOSONG DI MOCK DATA, OTOMATIS DIISI 'aktif'
+    required this.qrCodeData,
   });
 
-  Map<String, dynamic> toMap() => {
-        'id': id,
-        'name': name,
-        'building': building,
-        'floor': floor,
-        'category': category,
-        'healthScore': healthScore,
-        'activeIssues': activeIssues,
-        'resolvedIssues': resolvedIssues,
-        'qrCodeData': qrCodeData,
-        'status': status,
-      };
-
-  factory Room.fromMap(Map<String, dynamic> map) => Room(
-        id: map['id'] as String,
-        name: map['name'] as String,
-        building: map['building'] as String,
-        floor: (map['floor'] as num).toInt(),
-        category: map['category'] as String,
-        healthScore: (map['healthScore'] as num).toDouble(),
-        activeIssues: (map['activeIssues'] as num?)?.toInt() ?? 0,
-        resolvedIssues: (map['resolvedIssues'] as num?)?.toInt() ?? 0,
-        qrCodeData: map['qrCodeData'] as String?,
-        status: map['status'] as String? ?? 'aktif',
-      );
-
-  String get healthLabel {
-    if (healthScore >= 80) return 'Sehat';
-    if (healthScore >= 60) return 'Cukup';
-    if (healthScore >= 40) return 'Kurang';
-    return 'Kritis';
+  // Fungsi konversi dari Firebase Firestore ke Objek Dart secara aman
+  factory Room.fromMap(Map<String, dynamic> map) {
+    return Room(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? 'Tanpa Nama',
+      building: map['building']?.toString() ?? '-',
+      floor: (map['floor'] is num) ? (map['floor'] as num).toInt() : 0,
+      category: map['category']?.toString() ?? 'Umum',
+      healthScore: (map['healthScore'] is num) ? (map['healthScore'] as num).toDouble() : 100.0,
+      activeIssues: (map['activeIssues'] is num) ? (map['activeIssues'] as num).toInt() : 0,
+      resolvedIssues: (map['resolvedIssues'] is num) ? (map['resolvedIssues'] as num).toInt() : 0,
+      status: map['status']?.toString() ?? 'aktif',
+      qrCodeData: map['qrCodeData']?.toString() ?? '',
+    );
   }
 
+  // Helper warna berdasarkan skor kesehatan ruangan
   Color get healthColor {
-    if (healthScore >= 80) return const Color(0xFF10B981);
-    if (healthScore >= 60) return const Color(0xFFF59E0B);
-    if (healthScore >= 40) return const Color(0xFFF97316);
-    return const Color(0xFFEF4444);
+    if (healthScore >= 80) return Colors.green;
+    if (healthScore >= 50) return Colors.orange;
+    return Colors.red;
+  }
+
+  String get healthLabel {
+    if (healthScore >= 80) return 'Sangat Baik';
+    if (healthScore >= 50) return 'Perlu Perbaikan';
+    return 'Rusak Parah';
   }
 }

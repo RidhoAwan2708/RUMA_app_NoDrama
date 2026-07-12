@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../services/auth_provider.dart';
+import '../models/user_model.dart'; // Memastikan UserRole enum bisa terbaca
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,10 +28,54 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
     auth.clearError();
-    final ok = await auth.signIn(_emailCtrl.text.trim(), _passCtrl.text);
+    
+    final emailText = _emailCtrl.text.trim();
+    final passwordText = _passCtrl.text;
+
+    // 🕵️ TRIK OTOMATIS: Jika yang dicoba adalah akun demo admin
+    if (emailText == 'admin@ruma.ac.id') {
+      // 1. Coba login biasa dulu
+      bool ok = await auth.signIn(emailText, passwordText);
+      
+      if (!mounted) return;
+      
+      // 2. Jika sukses login, langsung lempar ke admin console
+      if (ok) {
+        Navigator.of(context).pushReplacementNamed('/admin-console');
+        return;
+      }
+      
+      // 3. Jika gagal (artinya akun belum ada di Firebase), kita buatkan OTOMATIS lewat signUp
+      bool daftarOk = await auth.signUp(
+        email: 'admin@ruma.ac.id',
+        password: 'password123',
+        name: 'Super Admin RUMA',
+        nimNip: '19700101',
+        role: UserRole.admin, // Menetapkan role sebagai admin
+      );
+      
+      if (!mounted) return;
+      
+      if (daftarOk) {
+        Navigator.of(context).pushReplacementNamed('/admin-console');
+        return;
+      }
+    }
+
+    // Alur Login Normal untuk User Lain (Mahasiswa / Dosen)
+    final ok = await auth.signIn(emailText, passwordText);
+    
     if (!mounted) return;
+    
     if (ok) {
-      Navigator.of(context).pushReplacementNamed('/dashboard');
+      final loggedInUser = auth.user;
+      
+      // Pengecekan apakah user memiliki role admin
+      if (loggedInUser != null && loggedInUser.role.toString().contains('admin')) {
+        Navigator.of(context).pushReplacementNamed('/admin-console');
+      } else {
+        Navigator.of(context).pushReplacementNamed('/dashboard');
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
