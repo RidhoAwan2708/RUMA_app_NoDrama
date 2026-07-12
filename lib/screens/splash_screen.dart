@@ -15,13 +15,19 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _init();
+    // Menjalankan inisialisasi aman setelah framework selesai melakukan build widget pertama kali
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _init();
+    });
   }
 
   Future<void> _init() async {
+    if (!mounted) return;
     context.read<FirestoreProvider>().loadRooms();
+    
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
+    
     final auth = context.read<AuthProvider>();
     if (auth.isLoggedIn) {
       Navigator.of(context).pushReplacementNamed('/dashboard');

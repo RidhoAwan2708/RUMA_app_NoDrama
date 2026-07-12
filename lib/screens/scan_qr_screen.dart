@@ -27,26 +27,43 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
     super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) {
+  void _onDetect(BarcodeCapture capture) async {
     if (_hasScanned) return;
     final barcode = capture.barcodes.firstOrNull;
     if (barcode?.rawValue == null) return;
     _hasScanned = true;
 
+    // Tampilkan loading dialog kecil supaya aplikasi tidak kosong saat mengambil data
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
     final raw = barcode!.rawValue!;
     final qrData = raw.startsWith('RUMA:') ? raw.substring(5) : raw;
 
     final provider = context.read<FirestoreProvider>();
-    final room = provider.roomById(qrData) ?? provider.roomByQrData(raw);
+    
+    // Mengambil data dari Firebase
+    final room = await provider.getRoomById(qrData);
+
+    if (!mounted) return;
+    
+    // Tutup loading dialog setelah data selesai diambil
+    Navigator.of(context).pop();
 
     if (room != null) {
+      // Pindah ke halaman detail jika data ruangan valid (bukan null)
       Navigator.of(context)
           .pushReplacementNamed('/room-detail', arguments: room);
     } else {
       _hasScanned = false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Ruangan tidak ditemukan: $raw'),
+          content: Text('Ruangan tidak ditemukan atau data tidak valid: $raw'),
           backgroundColor: RumaColors.dangerRed,
         ),
       );

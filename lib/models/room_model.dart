@@ -9,7 +9,7 @@ class Room {
   final double healthScore;
   final int activeIssues;
   final int resolvedIssues;
-  final String? qrCodeData;
+  final String? qrCodeData; 
   final String status;
 
   Room({
