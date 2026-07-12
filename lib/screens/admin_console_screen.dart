@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../models/report_model.dart';
 import '../services/firestore_provider.dart';
-import 'admin_notifications_screen.dart'; // 🔥 IMPORT FILE BARU KHUSUS NOTIFIKASI ADMIN
+import 'admin_notifications_screen.dart'; 
 
 class AdminConsoleScreen extends StatefulWidget {
   const AdminConsoleScreen({super.key});
@@ -84,7 +84,6 @@ class _AdminConsoleScreenState extends State<AdminConsoleScreen> {
         ),
         centerTitle: false,
         actions: [
-          // 🔥 NAVIGASI KE HALAMAN NOTIFIKASI ADMIN BARU
           IconButton(
             icon: const Icon(Icons.notifications_outlined, color: Color(0xFF64748B)),
             onPressed: () {
@@ -122,6 +121,29 @@ class _AdminConsoleScreenState extends State<AdminConsoleScreen> {
                   _buildWideStatCard('RESOLVED', '$resolvedCount', const Color(0xFF10B981), Icons.check_circle_outline_rounded),
                   const SizedBox(height: 12),
                   _buildWideStatCard('PENDING', '$pendingCount', const Color(0xFFDC2626), Icons.assignment_late_outlined, hasLeftBorder: true),
+                  
+                  // 🔥 TOMBOL TES MANDIRI FIREBASE (DITAROH DI SINI CUY)
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF004EC4),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () async {
+                      // Memicu fungsi tulis data independen ke Firebase
+                      await context.read<FirestoreProvider>().sendTestNotificationManual();
+                      
+                      // Memunculkan snackbar di layar biar kamu tahu tombolnya sukses bekerja
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Notif tes berhasil ditembak ke Firebase!')),
+                      );
+                    },
+                    icon: const Icon(Icons.send_rounded, size: 18),
+                    label: const Text('Kirim Notif Tes Manual', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  
                   const SizedBox(height: 24),
 
                   if (buildingMap.isNotEmpty) ...[
@@ -246,7 +268,6 @@ class _AdminConsoleScreenState extends State<AdminConsoleScreen> {
 
   Widget _buildCategoryDonutCard(Map<String, int> categoryMap) {
     List<Color> palette = [const Color(0xFF004EC4), const Color(0xFF475569), const Color(0xFF94A3B8)];
-    int index = 0;
 
     return Container(
       padding: const EdgeInsets.all(20),

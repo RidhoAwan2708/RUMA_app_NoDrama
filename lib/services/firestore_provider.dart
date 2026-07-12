@@ -102,6 +102,31 @@ class FirestoreProvider extends ChangeNotifier {
     }
   }
 
+  // 🔥 FUNGSI TESTING MANDIRI BARU (TANPA LOGIKA LUAR) 🔥
+  // Kamu bisa memicu fungsi ini lewat tombol tes apa saja untuk memverifikasi live data di Admin
+  Future<void> sendTestNotificationManual() async {
+    try {
+      // 1. Generate ID dokumen acak untuk notifikasi baru
+      final String newNotifId = _firestore.collection('notifications').doc().id;
+
+      // 2. Tulis data mandiri ke koleksi 'notifications'
+      await _firestore.collection('notifications').doc(newNotifId).set({
+        'id': newNotifId,
+        'userId': 'USER_TESTING_123', // ID testing mandiri
+        'title': 'Laporan Isu Baru (Tes Mandiri)',
+        'message': 'Fasilitas AC di Ruangan Simulator terindikasi mengalami gangguan operasional.',
+        'timestamp': FieldValue.serverTimestamp(), // Menggunakan jam server Firebase secara real-time
+        'isRead': false,
+        'type': 'report_status', 
+      });
+
+      debugPrint('Tentara Notif: Data tes berhasil dikirim ke Firebase! ID: $newNotifId');
+      notifyListeners();
+    } catch (error) {
+      debugPrint('Gagal mengirim data tes manual: $error');
+    }
+  }
+
   // 🔥 FIXED BUGS: Mengamankan error callback agar tidak mengubah status _useMock ke true saat ditekan kembali
   void listenToAllReportsRealTime() {
     if (_useMock) {
